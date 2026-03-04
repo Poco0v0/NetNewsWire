@@ -26,8 +26,8 @@ This repo is a fork of [Ranchero-Software/NetNewsWire](https://github.com/Ranche
 - `swiftlint` from project root (configuration in `.swiftlint.yml`)
 
 ### Setup
-- First-time setup: Run `./setup.sh` to configure development environment and code signing
-- Manual setup: Create `SharedXcodeSettings/DeveloperSettings.xcconfig` in parent directory (`../SharedXcodeSettings/`)
+- **Unsigned debug build (recommended for this fork)**: No setup needed — pass `CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO` to xcodebuild. See `doc/开发环境搭建.md` for details.
+- **Signed build**: Run `./setup.sh` or manually create `SharedXcodeSettings/DeveloperSettings.xcconfig` in parent directory (`../SharedXcodeSettings/`)
 
 ## Project Architecture
 
