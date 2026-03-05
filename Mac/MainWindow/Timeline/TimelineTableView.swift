@@ -28,6 +28,11 @@ final class TimelineTableView: NSTableView {
 
 	// MARK: - NSView
 
+	override func viewDidMoveToWindow() {
+		super.viewDidMoveToWindow()
+		applyThinVerticalScroller()
+	}
+
 	override var isOpaque: Bool {
 		return true
 	}
@@ -43,6 +48,11 @@ final class TimelineTableView: NSTableView {
 		if let scrollView = self.enclosingScrollView {
 			scrollView.hasVerticalScroller = true
 		}
+		applyThinVerticalScroller()
 		super.viewDidEndLiveResize()
+	}
+
+	private func applyThinVerticalScroller() {
+		enclosingScrollView?.verticalScroller?.controlSize = .small
 	}
 }

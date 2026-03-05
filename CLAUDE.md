@@ -88,6 +88,11 @@ Swift tools version: 6.2. Platforms: macOS 15.0+, iOS 26.0+. Upcoming features e
 
 ## Coding Rules
 
+### Fork Sync Constraint (Required)
+- For new requirements and feature work, keep changes minimally invasive.
+- Reuse existing implementation paths/components first; do not introduce new abstractions when existing code can be safely extended.
+- Prefer small, localized diffs to minimize merge conflicts when syncing from upstream `Ranchero-Software/NetNewsWire`.
+
 ### Swift Style
 - Idiomatic modern Swift. All Swift classes must be marked `final`. No subclasses (except inevitable AppKit/UIKit subclasses).
 - Prefer `if let x` and `guard let x` over `if let x = x` and `guard let x = x`.

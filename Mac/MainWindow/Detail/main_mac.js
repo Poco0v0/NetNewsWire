@@ -1,7 +1,12 @@
 function scrollDetection() {
-	window.onscroll = function(event) {
-		window.webkit.messageHandlers.windowDidScroll.postMessage(window.scrollY);
+	const scrollElement = document.scrollingElement || document.documentElement || document.body;
+	if (!scrollElement) {
+		return;
 	}
+
+	scrollElement.addEventListener("scroll", function() {
+		window.webkit.messageHandlers.windowDidScroll.postMessage(scrollElement.scrollTop);
+	}, { passive: true });
 }
 
 function linkHover() {

@@ -39,6 +39,11 @@ final class SidebarOutlineView: NSOutlineView {
 
 	// MARK: NSView
 
+	override func viewDidMoveToWindow() {
+		super.viewDidMoveToWindow()
+		applyThinVerticalScroller()
+	}
+
 	override func viewWillStartLiveResize() {
 
 		if let scrollView = self.enclosingScrollView {
@@ -52,6 +57,7 @@ final class SidebarOutlineView: NSOutlineView {
 		if let scrollView = self.enclosingScrollView {
 			scrollView.hasVerticalScroller = true
 		}
+		applyThinVerticalScroller()
 		super.viewDidEndLiveResize()
 	}
 
@@ -64,5 +70,9 @@ final class SidebarOutlineView: NSOutlineView {
 		}
 
 		super.keyDown(with: event)
+	}
+
+	private func applyThinVerticalScroller() {
+		enclosingScrollView?.verticalScroller?.controlSize = .small
 	}
 }

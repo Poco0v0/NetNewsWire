@@ -97,7 +97,7 @@ final class DetailWebView: WKWebView {
 
 	override func viewDidEndLiveResize() {
 		super.viewDidEndLiveResize()
-		evaluateJavaScript("document.body.style.overflow = 'visible';", completionHandler: nil)
+		evaluateJavaScript("document.body.style.overflow = 'auto';", completionHandler: nil)
 	}
 }
 

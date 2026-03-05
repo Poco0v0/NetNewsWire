@@ -248,7 +248,7 @@ extension DetailWebViewController: WKNavigationDelegate, WKUIDelegate {
 		guard let windowScrollY else {
 			return
 		}
-		webView.evaluateJavaScript("window.scrollTo(0, \(windowScrollY));")
+		webView.evaluateJavaScript("var e = document.scrollingElement || document.documentElement || document.body; if (e) { e.scrollTop = \(windowScrollY); }")
 		self.windowScrollY = nil
 	}
 
@@ -332,7 +332,7 @@ private extension DetailWebViewController {
 	}
 
 	private func fetchScrollInfo(_ completion: @escaping (ScrollInfo?) -> Void) {
-		let javascriptString = "var x = {contentHeight: document.body.scrollHeight, offsetY: document.body.scrollTop}; x"
+		let javascriptString = "var e = document.scrollingElement || document.documentElement || document.body; var x = {contentHeight: e ? e.scrollHeight : 0, offsetY: e ? e.scrollTop : 0}; x"
 
 		webView.evaluateJavaScript(javascriptString) { (info, _) in
 			guard let info = info as? [String: Any] else {
