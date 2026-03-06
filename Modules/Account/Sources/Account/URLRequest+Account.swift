@@ -61,6 +61,8 @@ public extension URLRequest {
 			// credentials-in-general, such as in this refresh token case,
 			// the authority to prove an identity.
 			assertionFailure("Refresh tokens are used to replace expired access tokens. Did you mean to use `accessToken` instead?")
+		case .aiProviderAPIKey:
+			assertionFailure("AI provider API keys are not used in URL requests.")
 		}
 
 		guard let conditionalGet = conditionalGet else {
