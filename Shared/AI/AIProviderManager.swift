@@ -7,11 +7,14 @@
 //
 
 import Foundation
-import Security
+import os
+import Secrets
 
 @MainActor final class AIProviderManager {
 
 	static let shared = AIProviderManager()
+
+	private let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "AIProviderManager")
 
 	private struct Key {
 		static let providersData = "aiProvidersData"
@@ -157,57 +160,51 @@ import Security
 private extension AIProviderManager {
 
 	func storeAPIKey(_ apiKey: String, forProviderID id: UUID) {
-		let account = id.uuidString
-		let deleteQuery: [String: Any] = [
-			kSecClass as String: kSecClassGenericPassword,
-			kSecAttrService as String: Self.keychainService,
-			kSecAttrAccount as String: account
-		]
-		SecItemDelete(deleteQuery as CFDictionary)
+		do {
+			try CredentialsManager.removeCredentials(
+				type: .aiProviderAPIKey,
+				server: Self.keychainService,
+				username: id.uuidString
+			)
 
-		guard !apiKey.isEmpty else {
-			return
+			guard !apiKey.isEmpty else {
+				return
+			}
+
+			let credentials = Credentials(
+				type: .aiProviderAPIKey,
+				username: id.uuidString,
+				secret: apiKey
+			)
+			try CredentialsManager.storeCredentials(credentials, server: Self.keychainService)
+		} catch {
+			logger.error("Failed to store API key for provider \(id): \(error)")
 		}
-
-		let data = Data(apiKey.utf8)
-		let addQuery: [String: Any] = [
-			kSecClass as String: kSecClassGenericPassword,
-			kSecAttrService as String: Self.keychainService,
-			kSecAttrAccount as String: account,
-			kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
-			kSecValueData as String: data
-		]
-		SecItemAdd(addQuery as CFDictionary, nil)
 	}
 
 	func retrieveAPIKey(forProviderID id: UUID) -> String {
-		let account = id.uuidString
-		let query: [String: Any] = [
-			kSecClass as String: kSecClassGenericPassword,
-			kSecAttrService as String: Self.keychainService,
-			kSecAttrAccount as String: account,
-			kSecMatchLimit as String: kSecMatchLimitOne,
-			kSecReturnData as String: true
-		]
-
-		var item: CFTypeRef?
-		let status = SecItemCopyMatching(query as CFDictionary, &item)
-
-		guard status == errSecSuccess,
-			  let data = item as? Data,
-			  let key = String(data: data, encoding: .utf8) else {
+		do {
+			let credentials = try CredentialsManager.retrieveCredentials(
+				type: .aiProviderAPIKey,
+				server: Self.keychainService,
+				username: id.uuidString
+			)
+			return credentials?.secret ?? ""
+		} catch {
+			logger.error("Failed to retrieve API key for provider \(id): \(error)")
 			return ""
 		}
-		return key
 	}
 
 	func deleteAPIKey(forProviderID id: UUID) {
-		let account = id.uuidString
-		let query: [String: Any] = [
-			kSecClass as String: kSecClassGenericPassword,
-			kSecAttrService as String: Self.keychainService,
-			kSecAttrAccount as String: account
-		]
-		SecItemDelete(query as CFDictionary)
+		do {
+			try CredentialsManager.removeCredentials(
+				type: .aiProviderAPIKey,
+				server: Self.keychainService,
+				username: id.uuidString
+			)
+		} catch {
+			logger.error("Failed to delete API key for provider \(id): \(error)")
+		}
 	}
 }

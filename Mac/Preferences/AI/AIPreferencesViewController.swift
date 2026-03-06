@@ -197,16 +197,16 @@ private extension AIPreferencesViewController {
 	func updateProviderPopUp(_ popUp: NSPopUpButton, selectedID: UUID?) {
 		popUp.removeAllItems()
 		popUp.addItem(withTitle: NSLocalizedString("None", comment: "AI Preferences popup"))
-		popUp.menu?.items.first?.representedObject = nil
+		popUp.menu?.items.first?.representedObject = nil as String?
 
 		for provider in providers {
-			let title: String = "\(provider.name) (\(provider.model))"
+			let title = "\(provider.name) (\(provider.model))"
 			popUp.addItem(withTitle: title)
-			popUp.lastItem?.representedObject = provider.id.uuidString
+			popUp.lastItem?.representedObject = provider.id.uuidString as String
 		}
 
 		if let selectedID {
-			let index: Int? = providers.firstIndex(where: { $0.id == selectedID })
+			let index = providers.firstIndex(where: { $0.id == selectedID })
 			if let index {
 				popUp.selectItem(at: index + 1)
 			} else {
