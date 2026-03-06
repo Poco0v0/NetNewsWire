@@ -14,6 +14,8 @@ NetNewsWire 是一个免费开源的 macOS/iOS 订阅阅读器，支持 [RSS](ht
 
 本 fork 为 NetNewsWire 添加了 AI 驱动的文章翻译和摘要功能。使用 OpenAI 兼容 API 协议，因此支持任何实现该标准的服务商。
 
+<img src="doc/ai-feature.png" width="800">
+
 **支持的服务商包括（不限于）：**
 
 - OpenAI (gpt-4o, gpt-4o-mini 等)
@@ -39,6 +41,8 @@ NetNewsWire 是一个免费开源的 macOS/iOS 订阅阅读器，支持 [RSS](ht
 
 1. 打开 **NetNewsWire > 设置**（或按 `Cmd + ,`）。
 2. 进入 **AI** 标签页。
+
+<img src="doc/ai-setting.png" width="600">
 
 #### 第一步：添加服务商
 

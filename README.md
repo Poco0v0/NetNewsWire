@@ -14,6 +14,8 @@ NetNewsWire is a free and open-source feed reader for macOS and iOS. It supports
 
 This fork adds AI-powered article translation and summarization to NetNewsWire. It uses the OpenAI-compatible API protocol, so it works with any provider that implements this standard.
 
+<img src="doc/ai-feature.png" width="800">
+
 **Supported providers include (but are not limited to):**
 
 - OpenAI (gpt-4o, gpt-4o-mini, etc.)
@@ -39,6 +41,8 @@ This fork adds AI-powered article translation and summarization to NetNewsWire. 
 
 1. Open **NetNewsWire > Settings** (or press `Cmd + ,`).
 2. Go to the **AI** tab.
+
+<img src="doc/ai-setting.png" width="600">
 
 #### Step 1: Add a Provider
 
