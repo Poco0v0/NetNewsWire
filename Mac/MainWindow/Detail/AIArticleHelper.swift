@@ -18,6 +18,11 @@ import Articles
 	private(set) var isTranslating = false
 	private(set) var isSummarizing = false
 
+	private var translationTask: Task<Void, Never>?
+	private var summaryTask: Task<Void, Never>?
+
+	var onStateChange: (() -> Void)?
+
 	var isBusy: Bool {
 		isTranslating || isSummarizing
 	}
@@ -31,6 +36,10 @@ import Articles
 	}
 
 	func articleDidChange(articleID: String?) {
+		translationTask?.cancel()
+		summaryTask?.cancel()
+		translationTask = nil
+		summaryTask = nil
 		currentArticleID = articleID
 		isTranslated = false
 		isTranslating = false
@@ -43,7 +52,32 @@ import Articles
 		currentArticleID != nil && !isTranslating
 	}
 
-	func toggleTranslation(article: Article) async {
+	func toggleTranslation(article: Article, extractedContent: (title: String?, body: String?)? = nil) {
+		translationTask?.cancel()
+		translationTask = Task { @MainActor in
+			await performTranslation(article: article, extractedContent: extractedContent)
+		}
+	}
+
+	// MARK: - Summary
+
+	var canSummarize: Bool {
+		currentArticleID != nil && !isSummarizing
+	}
+
+	func summarize(article: Article, extractedContent: (title: String?, body: String?)? = nil) {
+		summaryTask?.cancel()
+		summaryTask = Task { @MainActor in
+			await performSummarize(article: article, extractedContent: extractedContent)
+		}
+	}
+}
+
+// MARK: - Private
+
+private extension AIArticleHelper {
+
+	func performTranslation(article: Article, extractedContent: (title: String?, body: String?)?) async {
 		guard let webView else {
 			return
 		}
@@ -66,11 +100,19 @@ import Articles
 			targetLanguage: targetLanguage
 		)
 
-		let title = article.title ?? ""
-		let body = article.contentHTML ?? article.contentText ?? ""
+		let title: String
+		let body: String
+		if let extracted = extractedContent {
+			title = extracted.title ?? article.title ?? ""
+			body = extracted.body ?? article.contentHTML ?? article.contentText ?? ""
+		} else {
+			title = article.title ?? ""
+			body = article.contentHTML ?? article.contentText ?? ""
+		}
 		let userContent = "Title: \(title)\n\nBody:\n\(body)"
 
 		isTranslating = true
+		onStateChange?()
 		_ = try? await webView.evaluateJavaScript("nnwShowAILoading('translate')")
 
 		do {
@@ -81,6 +123,9 @@ import Articles
 				userContent: userContent
 			)
 
+			guard !Task.isCancelled else {
+				return
+			}
 			guard currentArticleID == articleID else {
 				return
 			}
@@ -91,20 +136,17 @@ import Articles
 			_ = try? await webView.evaluateJavaScript("nnwShowTranslation(\(translatedTitle.javaScriptQuoted), \(translatedBody.javaScriptQuoted))")
 			isTranslated = true
 		} catch {
-			_ = try? await webView.evaluateJavaScript("nnwRemoveAILoading('translate')")
-			showErrorAlert(error)
+			if !Task.isCancelled {
+				_ = try? await webView.evaluateJavaScript("nnwRemoveAILoading('translate')")
+				showErrorAlert(error)
+			}
 		}
 
 		isTranslating = false
+		onStateChange?()
 	}
 
-	// MARK: - Summary
-
-	var canSummarize: Bool {
-		currentArticleID != nil && !isSummarizing
-	}
-
-	func summarize(article: Article) async {
+	func performSummarize(article: Article, extractedContent: (title: String?, body: String?)?) async {
 		guard let webView else {
 			return
 		}
@@ -120,9 +162,16 @@ import Articles
 			verb: "Summarize",
 			targetLanguage: targetLanguage
 		)
-		let text = article.contentText ?? article.contentHTML ?? ""
+
+		let text: String
+		if let extracted = extractedContent {
+			text = extracted.body ?? article.contentText ?? article.contentHTML ?? ""
+		} else {
+			text = article.contentText ?? article.contentHTML ?? ""
+		}
 
 		isSummarizing = true
+		onStateChange?()
 		_ = try? await webView.evaluateJavaScript("nnwShowAILoading('summary')")
 
 		do {
@@ -133,6 +182,9 @@ import Articles
 				userContent: text
 			)
 
+			guard !Task.isCancelled else {
+				return
+			}
 			guard currentArticleID == articleID else {
 				return
 			}
@@ -140,34 +192,62 @@ import Articles
 			_ = try? await webView.evaluateJavaScript("nnwRemoveAILoading('summary')")
 			_ = try? await webView.evaluateJavaScript("nnwShowSummary(\(result.javaScriptQuoted))")
 		} catch {
-			_ = try? await webView.evaluateJavaScript("nnwRemoveAILoading('summary')")
-			showErrorAlert(error)
+			if !Task.isCancelled {
+				_ = try? await webView.evaluateJavaScript("nnwRemoveAILoading('summary')")
+				showErrorAlert(error)
+			}
 		}
 
 		isSummarizing = false
+		onStateChange?()
 	}
-}
 
-// MARK: - Private
+	// MARK: - Translation Result Parsing
 
-private extension AIArticleHelper {
+	struct TranslationJSON: Decodable {
+		let title: String?
+		let body: String?
+	}
 
 	func parseTranslationResult(_ result: String, hasTitle: Bool) -> (String, String) {
+		// Try JSON parsing first
+		if let data = result.data(using: .utf8),
+		   let json = try? JSONDecoder().decode(TranslationJSON.self, from: data) {
+			let title = hasTitle ? (json.title ?? "") : ""
+			let body = json.body ?? json.title ?? result
+			return (title, body)
+		}
+
+		// Fallback: try to extract JSON from markdown code fences
+		let trimmed = result.trimmingCharacters(in: .whitespacesAndNewlines)
+		if trimmed.hasPrefix("```") {
+			let lines = trimmed.components(separatedBy: "\n")
+			let jsonLines = lines.dropFirst().prefix(while: { !$0.hasPrefix("```") })
+			let jsonString = jsonLines.joined(separator: "\n")
+			if let data = jsonString.data(using: .utf8),
+			   let json = try? JSONDecoder().decode(TranslationJSON.self, from: data) {
+				let title = hasTitle ? (json.title ?? "") : ""
+				let body = json.body ?? result
+				return (title, body)
+			}
+		}
+
+		// Final fallback: old newline-based split
 		guard hasTitle else {
 			return ("", result)
 		}
-
-		let lines = result.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
-		if lines.count >= 2 {
-			let titlePart = String(lines[0]).trimmingCharacters(in: .whitespacesAndNewlines)
-			let bodyPart = String(lines[1]).trimmingCharacters(in: .whitespacesAndNewlines)
+		let splitLines = result.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
+		if splitLines.count >= 2 {
+			let titlePart = String(splitLines[0]).trimmingCharacters(in: .whitespacesAndNewlines)
+			let bodyPart = String(splitLines[1]).trimmingCharacters(in: .whitespacesAndNewlines)
 			if !bodyPart.isEmpty {
 				return (titlePart, bodyPart)
 			}
 		}
-
 		return ("", result)
 	}
+
+	// MARK: - Alerts
 
 	func showNoProviderAlert(for feature: String) {
 		let alert = NSAlert()

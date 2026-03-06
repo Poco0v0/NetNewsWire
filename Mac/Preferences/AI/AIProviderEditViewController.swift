@@ -256,30 +256,36 @@ private extension AIProviderEditViewController {
 	}
 
 	/// Normalize endpoint URL: ensure https scheme and /v1/chat/completions path.
+	/// Uses URLComponents to inspect path only, so query parameters are preserved.
 	static func normalizeEndpointURL(_ raw: String) -> String {
-		var url = raw
+		var url = raw.trimmingCharacters(in: .whitespacesAndNewlines)
 
-		// Add https:// if no scheme present
 		if !url.contains("://") {
 			url = "https://" + url
 		}
 
-		// Strip trailing slashes
 		while url.hasSuffix("/") {
 			url = String(url.dropLast())
 		}
 
-		// Auto-append path components as needed
-		if !url.hasSuffix("/chat/completions") {
-			if url.hasSuffix("/v1") {
-				url += "/chat/completions"
-			} else if url.hasSuffix("/v1/chat") {
-				url += "/completions"
-			} else {
-				url += "/v1/chat/completions"
-			}
+		guard var components = URLComponents(string: url) else {
+			return url
 		}
 
-		return url
+		let path = components.path
+
+		if path.hasSuffix("/chat/completions") {
+			return components.string ?? url
+		}
+
+		if path.hasSuffix("/v1") {
+			components.path = path + "/chat/completions"
+		} else if path.hasSuffix("/v1/chat") {
+			components.path = path + "/completions"
+		} else {
+			components.path = path + "/v1/chat/completions"
+		}
+
+		return components.string ?? url
 	}
 }

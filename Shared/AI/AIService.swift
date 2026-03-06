@@ -70,7 +70,7 @@ enum AIServiceError: LocalizedError {
 			result += " Return the result as HTML (use <ul><li> for bullet points). Do not use markdown."
 		}
 		if verb == "Translate" {
-			result += " Preserve all HTML tags and structure. Only translate text content, not HTML tags or attributes."
+			result += " Return the result as a JSON object with two keys: \"title\" (translated title) and \"body\" (translated body HTML). Preserve all HTML tags and structure in the body. Only translate text content, not HTML tags or attributes. Output ONLY the raw JSON object, no markdown code fences."
 		}
 		result += repeated
 		return result.trimmingCharacters(in: .whitespaces)

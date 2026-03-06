@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Security
 
 @MainActor final class AIProviderManager {
 
@@ -19,6 +20,8 @@ import Foundation
 		static let targetLanguage = "aiTargetLanguage"
 	}
 
+	private static let keychainService = "com.ranchero.NetNewsWire.ai-provider"
+
 	private let defaults = UserDefaults.standard
 	private let encoder = JSONEncoder()
 	private let decoder = JSONDecoder()
@@ -29,7 +32,13 @@ import Foundation
 		guard let data = defaults.data(forKey: Key.providersData) else {
 			return []
 		}
-		return (try? decoder.decode([AIProvider].self, from: data)) ?? []
+		guard var list = try? decoder.decode([AIProvider].self, from: data) else {
+			return []
+		}
+		for i in list.indices {
+			list[i].apiKey = retrieveAPIKey(forProviderID: list[i].id)
+		}
+		return list
 	}
 
 	func saveProviders(_ providers: [AIProvider]) {
@@ -37,6 +46,10 @@ import Foundation
 			return
 		}
 		defaults.set(data, forKey: Key.providersData)
+
+		for provider in providers {
+			storeAPIKey(provider.apiKey, forProviderID: provider.id)
+		}
 	}
 
 	func addProvider(_ provider: AIProvider) {
@@ -58,6 +71,7 @@ import Foundation
 		var list = providers
 		list.removeAll { $0.id == id }
 		saveProviders(list)
+		deleteAPIKey(forProviderID: id)
 
 		if translationProviderID == id {
 			translationProviderID = nil
@@ -136,4 +150,64 @@ import Foundation
 		"Vietnamese",
 		"Indonesian"
 	]
+}
+
+// MARK: - Keychain
+
+private extension AIProviderManager {
+
+	func storeAPIKey(_ apiKey: String, forProviderID id: UUID) {
+		let account = id.uuidString
+		let deleteQuery: [String: Any] = [
+			kSecClass as String: kSecClassGenericPassword,
+			kSecAttrService as String: Self.keychainService,
+			kSecAttrAccount as String: account
+		]
+		SecItemDelete(deleteQuery as CFDictionary)
+
+		guard !apiKey.isEmpty else {
+			return
+		}
+
+		let data = Data(apiKey.utf8)
+		let addQuery: [String: Any] = [
+			kSecClass as String: kSecClassGenericPassword,
+			kSecAttrService as String: Self.keychainService,
+			kSecAttrAccount as String: account,
+			kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+			kSecValueData as String: data
+		]
+		SecItemAdd(addQuery as CFDictionary, nil)
+	}
+
+	func retrieveAPIKey(forProviderID id: UUID) -> String {
+		let account = id.uuidString
+		let query: [String: Any] = [
+			kSecClass as String: kSecClassGenericPassword,
+			kSecAttrService as String: Self.keychainService,
+			kSecAttrAccount as String: account,
+			kSecMatchLimit as String: kSecMatchLimitOne,
+			kSecReturnData as String: true
+		]
+
+		var item: CFTypeRef?
+		let status = SecItemCopyMatching(query as CFDictionary, &item)
+
+		guard status == errSecSuccess,
+			  let data = item as? Data,
+			  let key = String(data: data, encoding: .utf8) else {
+			return ""
+		}
+		return key
+	}
+
+	func deleteAPIKey(forProviderID id: UUID) {
+		let account = id.uuidString
+		let query: [String: Any] = [
+			kSecClass as String: kSecClassGenericPassword,
+			kSecAttrService as String: Self.keychainService,
+			kSecAttrAccount as String: account
+		]
+		SecItemDelete(query as CFDictionary)
+	}
 }

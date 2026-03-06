@@ -473,11 +473,7 @@ final class MainWindowController: NSWindowController, NSUserInterfaceValidations
 			return
 		}
 		ensureAIHelper()
-		invalidateAIToolbarItems()
-		Task { @MainActor in
-			await aiArticleHelper?.toggleTranslation(article: article)
-			invalidateAIToolbarItems()
-		}
+		aiArticleHelper?.toggleTranslation(article: article, extractedContent: extractedContentForAI())
 	}
 
 	@IBAction func aiSummarize(_ sender: Any?) {
@@ -485,11 +481,7 @@ final class MainWindowController: NSWindowController, NSUserInterfaceValidations
 			return
 		}
 		ensureAIHelper()
-		invalidateAIToolbarItems()
-		Task { @MainActor in
-			await aiArticleHelper?.summarize(article: article)
-			invalidateAIToolbarItems()
-		}
+		aiArticleHelper?.summarize(article: article, extractedContent: extractedContentForAI())
 	}
 
 	@IBAction func markAllAsReadAndGoToNextUnread(_ sender: Any?) {
@@ -1478,7 +1470,17 @@ private extension MainWindowController {
 		} else {
 			aiArticleHelper = AIArticleHelper(webView: webView)
 			aiArticleHelper?.articleDidChange(articleID: oneSelectedArticle?.articleID)
+			aiArticleHelper?.onStateChange = { [weak self] in
+				self?.invalidateAIToolbarItems()
+			}
 		}
+	}
+
+	func extractedContentForAI() -> (title: String?, body: String?)? {
+		guard isShowingExtractedArticle, let extractedArticle = articleExtractor?.article else {
+			return nil
+		}
+		return (title: extractedArticle.title, body: extractedArticle.content)
 	}
 
 	func invalidateAIToolbarItems() {
