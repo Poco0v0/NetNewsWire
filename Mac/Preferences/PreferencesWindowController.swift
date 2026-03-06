@@ -25,6 +25,7 @@ private struct ToolbarItemIdentifier {
 	static let General = "General"
 	static let Accounts = "Accounts"
 	static let Advanced = "Advanced"
+	static let AI = "AI"
 }
 
 final class PreferencesWindowController: NSWindowController, NSToolbarDelegate {
@@ -42,6 +43,9 @@ final class PreferencesWindowController: NSWindowController, NSToolbarDelegate {
 		specs += [PreferencesToolbarItemSpec(identifierRawValue: ToolbarItemIdentifier.Advanced,
 											 name: NSLocalizedString("Advanced", comment: "Preferences"),
 											 image: Assets.Images.preferencesToolbarAdvanced)]
+		specs += [PreferencesToolbarItemSpec(identifierRawValue: ToolbarItemIdentifier.AI,
+											 name: NSLocalizedString("AI", comment: "Preferences"),
+											 image: NSImage(systemSymbolName: "brain", accessibilityDescription: "AI"))]
 		return specs
 	}()
 
@@ -59,6 +63,12 @@ final class PreferencesWindowController: NSWindowController, NSToolbarDelegate {
 		switchToViewAtIndex(0)
 
 		window?.center()
+	}
+
+	@objc func openAIPreferences(_ note: Notification) {
+		showWindow(nil)
+		window?.toolbar?.selectedItemIdentifier = NSToolbarItem.Identifier(ToolbarItemIdentifier.AI)
+		switchToView(identifier: ToolbarItemIdentifier.AI)
 	}
 
 	// MARK: Actions
@@ -150,6 +160,12 @@ private extension PreferencesWindowController {
 	func viewController(identifier: String) -> NSViewController? {
 		if let cachedViewController = viewControllers[identifier] {
 			return cachedViewController
+		}
+
+		if identifier == ToolbarItemIdentifier.AI {
+			let viewController = AIPreferencesViewController()
+			viewControllers[identifier] = viewController
+			return viewController
 		}
 
 		let storyboard = NSStoryboard(name: NSStoryboard.Name("Preferences"), bundle: nil)

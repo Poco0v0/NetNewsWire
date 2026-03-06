@@ -112,6 +112,7 @@ let appName = "NetNewsWire"
 		NotificationCenter.default.addObserver(self, selector: #selector(inspectableObjectsDidChange(_:)), name: .InspectableObjectsDidChange, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(importDownloadedTheme(_:)), name: .didEndDownloadingTheme, object: nil)
 		NotificationCenter.default.addObserver(self, selector: #selector(themeImportError(_:)), name: .didFailToImportThemeWithError, object: nil)
+		NotificationCenter.default.addObserver(self, selector: #selector(openAIPreferences(_:)), name: .OpenAIPreferences, object: nil)
 		NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(didWakeNotification(_:)), name: NSWorkspace.didWakeNotification, object: nil)
 	}
 
@@ -514,6 +515,13 @@ let appName = "NetNewsWire"
 	// MARK: - Actions
 	@IBAction func showPreferences(_ sender: Any?) {
 		preferencesWindowController.showWindow(self)
+	}
+
+	@objc func openAIPreferences(_ note: Notification) {
+		preferencesWindowController.showWindow(self)
+		if let controller = preferencesWindowController as? PreferencesWindowController {
+			controller.openAIPreferences(note)
+		}
 	}
 
 	@IBAction func newMainWindow(_ sender: Any?) {

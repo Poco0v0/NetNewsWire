@@ -74,6 +74,10 @@ final class DetailViewController: NSViewController, WKUIDelegate {
 
 	// MARK: - API
 
+	var currentWebView: WKWebView? {
+		currentWebViewController.webView
+	}
+
 	func setState(_ state: DetailState, mode: TimelineSourceMode) {
 		switch mode {
 		case .regular:

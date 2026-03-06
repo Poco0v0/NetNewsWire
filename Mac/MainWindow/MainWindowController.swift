@@ -28,6 +28,8 @@ final class MainWindowController: NSWindowController, NSUserInterfaceValidations
 	private var articleExtractor: ArticleExtractor?
 	private var sharingServicePickerDelegate: NSSharingServicePickerDelegate?
 
+	private var aiArticleHelper: AIArticleHelper?
+
 	private let windowAutosaveName = NSWindow.FrameAutosaveName("MainWindow")
 	private static let mainWindowWidthsStateKey = "mainWindowWidthsStateKey"
 
@@ -288,6 +290,14 @@ final class MainWindowController: NSWindowController, NSUserInterfaceValidations
 			return validateToggleReadArticles(item)
 		}
 
+		if item.action == #selector(toggleAITranslation(_:)) {
+			return oneSelectedArticle != nil && !(aiArticleHelper?.isBusy ?? false)
+		}
+
+		if item.action == #selector(aiSummarize(_:)) {
+			return oneSelectedArticle != nil && !(aiArticleHelper?.isBusy ?? false)
+		}
+
 		return true
 	}
 
@@ -456,6 +466,30 @@ final class MainWindowController: NSWindowController, NSUserInterfaceValidations
 			startArticleExtractorForCurrentLink()
 		}
 
+	}
+
+	@IBAction func toggleAITranslation(_ sender: Any?) {
+		guard let article = oneSelectedArticle else {
+			return
+		}
+		ensureAIHelper()
+		invalidateAIToolbarItems()
+		Task { @MainActor in
+			await aiArticleHelper?.toggleTranslation(article: article)
+			invalidateAIToolbarItems()
+		}
+	}
+
+	@IBAction func aiSummarize(_ sender: Any?) {
+		guard let article = oneSelectedArticle else {
+			return
+		}
+		ensureAIHelper()
+		invalidateAIToolbarItems()
+		Task { @MainActor in
+			await aiArticleHelper?.summarize(article: article)
+			invalidateAIToolbarItems()
+		}
 	}
 
 	@IBAction func markAllAsReadAndGoToNextUnread(_ sender: Any?) {
@@ -651,6 +685,7 @@ extension MainWindowController: TimelineContainerViewControllerDelegate {
 		}
 
 		detailViewController?.setState(detailState, mode: mode)
+		aiArticleHelper?.articleDidChange(articleID: articles?.first?.articleID)
 	}
 
 	func timelineRequestedFeedSelection(_: TimelineContainerViewController, feed: Feed) {
@@ -789,6 +824,8 @@ extension NSToolbarItem.Identifier {
 	static let share = NSToolbarItem.Identifier("share")
 	static let articleThemeMenu = NSToolbarItem.Identifier("articleThemeMenu")
 	static let cleanUp = NSToolbarItem.Identifier("cleanUp")
+	static let aiTranslate = NSToolbarItem.Identifier("aiTranslate")
+	static let aiSummarize = NSToolbarItem.Identifier("aiSummarize")
 }
 
 extension MainWindowController: NSToolbarDelegate {
@@ -870,6 +907,14 @@ extension MainWindowController: NSToolbarDelegate {
 			let title = NSLocalizedString("Clean Up", comment: "Clean Up")
 			return buildToolbarButton(.cleanUp, title, Assets.Images.cleanUp, "cleanUp:")
 
+		case .aiTranslate:
+			let title = NSLocalizedString("Translate", comment: "Translate")
+			return buildToolbarButton(.aiTranslate, title, RSImage(symbol: "translate")!, "toggleAITranslation:")
+
+		case .aiSummarize:
+			let title = NSLocalizedString("Summarize", comment: "Summarize")
+			return buildToolbarButton(.aiSummarize, title, RSImage(symbol: "text.badge.star")!, "aiSummarize:")
+
 		default:
 			break
 		}
@@ -894,6 +939,8 @@ extension MainWindowController: NSToolbarDelegate {
 			.openInBrowser,
 			.share,
 			.articleThemeMenu,
+			.aiTranslate,
+			.aiSummarize,
 			.search,
 			.cleanUp
 		]
@@ -915,6 +962,8 @@ extension MainWindowController: NSToolbarDelegate {
 			.readerView,
 			.share,
 			.openInBrowser,
+			.aiTranslate,
+			.aiSummarize,
 			.flexibleSpace,
 			.search
 		]
@@ -1418,6 +1467,29 @@ private extension MainWindowController {
 		toolbarItem.toolTip = title
 		toolbarItem.label = title
 		return toolbarItem
+	}
+
+	func ensureAIHelper() {
+		guard let webView = detailViewController?.currentWebView else {
+			return
+		}
+		if let helper = aiArticleHelper {
+			helper.updateWebView(webView)
+		} else {
+			aiArticleHelper = AIArticleHelper(webView: webView)
+			aiArticleHelper?.articleDidChange(articleID: oneSelectedArticle?.articleID)
+		}
+	}
+
+	func invalidateAIToolbarItems() {
+		guard let toolbar = window?.toolbar else {
+			return
+		}
+		for item in toolbar.items {
+			if item.itemIdentifier == .aiTranslate || item.itemIdentifier == .aiSummarize {
+				item.validate()
+			}
+		}
 	}
 
 	func buildNewSidebarItemMenu() -> NSMenu {
